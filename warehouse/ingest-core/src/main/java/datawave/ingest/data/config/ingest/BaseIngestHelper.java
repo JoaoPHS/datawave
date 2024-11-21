@@ -35,11 +35,11 @@ import datawave.ingest.data.Type;
 import datawave.ingest.data.TypeRegistry;
 import datawave.ingest.data.config.DataTypeHelperImpl;
 import datawave.ingest.data.config.FieldConfigHelper;
+import datawave.ingest.data.config.FieldConfigHelperFactory;
 import datawave.ingest.data.config.MarkingsHelper;
 import datawave.ingest.data.config.MaskedFieldHelper;
 import datawave.ingest.data.config.NormalizedContentInterface;
 import datawave.ingest.data.config.NormalizedFieldAndValue;
-import datawave.ingest.data.config.XMLFieldConfigHelper;
 import datawave.util.StringUtils;
 
 /**
@@ -136,7 +136,7 @@ public abstract class BaseIngestHelper extends AbstractIngestHelper implements C
      */
     public static final String FIELD_FAILED_NORMALIZATION_POLICY = ".data.field.normalization.failure.policy";
 
-    public static final String FIELD_CONFIG_FILE = ".data.category.field.config.file";
+    public static final String FIELD_CONFIG_FILE_FACTORY = ".data.category.field.config.file.factory";
 
     private static final Logger log = ThreadConfigurableLogger.getLogger(BaseIngestHelper.class);
 
@@ -252,13 +252,7 @@ public abstract class BaseIngestHelper extends AbstractIngestHelper implements C
         String configProperty = null;
 
         // Load the field helper, which takes precedence over the individual field configurations
-        final String fieldConfigFile = config.get(this.getType().typeName() + FIELD_CONFIG_FILE);
-        if (fieldConfigFile != null) {
-            if (log.isDebugEnabled()) {
-                log.debug("Field config file " + fieldConfigFile + " specified for: " + this.getType().typeName() + FIELD_CONFIG_FILE);
-            }
-            this.fieldConfigHelper = XMLFieldConfigHelper.load(fieldConfigFile, this);
-        }
+        this.fieldConfigHelper = FieldConfigHelperFactory.loadFactory(this.getType(), config).create(this, config).orElse(null);
 
         // Process the indexed fields
         if (config.get(this.getType().typeName() + DISALLOWLIST_INDEX_FIELDS) != null) {
