@@ -1,5 +1,12 @@
 package datawave.ingest.data.config;
 
+import static datawave.ingest.data.config.XMLFieldConfigHelper.CachedFields.ResultType.INDEXED_FIELD;
+import static datawave.ingest.data.config.XMLFieldConfigHelper.CachedFields.ResultType.INDEX_ONLY_FIELD;
+import static datawave.ingest.data.config.XMLFieldConfigHelper.CachedFields.ResultType.REVERSE_INDEXED_FIELD;
+import static datawave.ingest.data.config.XMLFieldConfigHelper.CachedFields.ResultType.REVERSE_TOKENIZED_FIELD;
+import static datawave.ingest.data.config.XMLFieldConfigHelper.CachedFields.ResultType.STORED_FIELD;
+import static datawave.ingest.data.config.XMLFieldConfigHelper.CachedFields.ResultType.TOKENIZED_FIELD;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
@@ -8,6 +15,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.function.Predicate;
 import java.util.regex.Matcher;
 
 import javax.xml.parsers.ParserConfigurationException;
@@ -41,6 +49,7 @@ public final class XMLFieldConfigHelper implements FieldConfigHelper {
 
     private final Map<String,FieldInfo> knownFields = new HashMap<>();
     private TreeMap<Matcher,String> patterns = new TreeMap<>(new BaseIngestHelper.MatcherComparator());
+    private CachedFields cachedResults = new CachedFields();
 
     private static final String UNEXPECTED_ATTRIBUTE = "Unexpected attribute encountered in: ";
 
@@ -130,77 +139,88 @@ public final class XMLFieldConfigHelper implements FieldConfigHelper {
 
     @Override
     public boolean isStoredField(String fieldName) {
-        if (knownFields.containsKey(fieldName)) {
-            return this.knownFields.get(fieldName).stored;
-        }
+        return cachedResults.getOrComputeFieldResult(STORED_FIELD, fieldName, (localFieldName) -> {
+            if (knownFields.containsKey(localFieldName)) {
+                return this.knownFields.get(localFieldName).stored;
+            }
 
-        String pattern = findMatchingPattern(fieldName);
-        if (pattern != null) {
-            return this.knownFields.get(pattern).stored;
-        }
+            String pattern = findMatchingPattern(localFieldName);
+            if (pattern != null) {
+                return this.knownFields.get(pattern).stored;
+            }
 
-        return isNoMatchStored();
+            return isNoMatchStored();
+        });
     }
 
     @Override
     public boolean isIndexedField(String fieldName) {
-        if (knownFields.containsKey(fieldName)) {
-            return this.knownFields.get(fieldName).indexed;
-        }
+        return cachedResults.getOrComputeFieldResult(INDEXED_FIELD, fieldName, (localFieldName) -> {
+            if (knownFields.containsKey(localFieldName)) {
+                return this.knownFields.get(localFieldName).indexed;
+            }
 
-        String pattern = findMatchingPattern(fieldName);
-        if (pattern != null) {
-            return this.knownFields.get(pattern).indexed;
-        }
+            String pattern = findMatchingPattern(localFieldName);
+            if (pattern != null) {
+                return this.knownFields.get(pattern).indexed;
+            }
 
-        return isNoMatchIndexed();
+            return isNoMatchIndexed();
+        });
     }
 
     @Override
     public boolean isIndexOnlyField(String fieldName) {
-        return isIndexedField(fieldName) && !isStoredField(fieldName);
+        return cachedResults.getOrComputeFieldResult(INDEX_ONLY_FIELD, fieldName,
+                        (localFieldName) -> isIndexedField(localFieldName) && !isStoredField(localFieldName));
     }
 
     @Override
     public boolean isReverseIndexedField(String fieldName) {
-        if (knownFields.containsKey(fieldName)) {
-            return this.knownFields.get(fieldName).reverseIndexed;
-        }
+        return cachedResults.getOrComputeFieldResult(REVERSE_INDEXED_FIELD, fieldName, (localFieldName) -> {
+            if (knownFields.containsKey(localFieldName)) {
+                return this.knownFields.get(localFieldName).reverseIndexed;
+            }
 
-        String pattern = findMatchingPattern(fieldName);
-        if (pattern != null) {
-            return this.knownFields.get(pattern).reverseIndexed;
-        }
+            String pattern = findMatchingPattern(localFieldName);
+            if (pattern != null) {
+                return this.knownFields.get(pattern).reverseIndexed;
+            }
 
-        return isNoMatchReverseIndexed();
+            return isNoMatchReverseIndexed();
+        });
     }
 
     @Override
     public boolean isTokenizedField(String fieldName) {
-        if (knownFields.containsKey(fieldName)) {
-            return this.knownFields.get(fieldName).tokenized;
-        }
+        return cachedResults.getOrComputeFieldResult(TOKENIZED_FIELD, fieldName, (localFieldName) -> {
+            if (knownFields.containsKey(localFieldName)) {
+                return this.knownFields.get(localFieldName).tokenized;
+            }
 
-        String pattern = findMatchingPattern(fieldName);
-        if (pattern != null) {
-            return this.knownFields.get(pattern).tokenized;
-        }
+            String pattern = findMatchingPattern(localFieldName);
+            if (pattern != null) {
+                return this.knownFields.get(pattern).tokenized;
+            }
 
-        return isNoMatchTokenized();
+            return isNoMatchTokenized();
+        });
     }
 
     @Override
     public boolean isReverseTokenizedField(String fieldName) {
-        if (knownFields.containsKey(fieldName)) {
-            return this.knownFields.get(fieldName).reverseTokenized;
-        }
+        return cachedResults.getOrComputeFieldResult(REVERSE_TOKENIZED_FIELD, fieldName, (localFieldName) -> {
+            if (knownFields.containsKey(localFieldName)) {
+                return this.knownFields.get(localFieldName).reverseTokenized;
+            }
 
-        String pattern = findMatchingPattern(fieldName);
-        if (pattern != null) {
-            return this.knownFields.get(pattern).reverseTokenized;
-        }
+            String pattern = findMatchingPattern(localFieldName);
+            if (pattern != null) {
+                return this.knownFields.get(pattern).reverseTokenized;
+            }
 
-        return isNoMatchReverseTokenized();
+            return isNoMatchReverseTokenized();
+        });
     }
 
     public boolean isNoMatchStored() {
@@ -241,6 +261,10 @@ public final class XMLFieldConfigHelper implements FieldConfigHelper {
 
     public void setNoMatchReverseTokenized(boolean noMatchReverseTokenized) {
         this.noMatchReverseTokenized = noMatchReverseTokenized;
+    }
+
+    CachedFields getCachedResults() {
+        return this.cachedResults;
     }
 
     /**
@@ -498,6 +522,95 @@ public final class XMLFieldConfigHelper implements FieldConfigHelper {
                     this.ingestHelper.updateDatawaveTypes(pattern, fieldType);
                 } else if (!fieldType.equals(this.defaultFieldType)) {
                     log.warn("No BaseIngestHelper set, ignoring type information for " + pattern + " in configuration file");
+                }
+            }
+        }
+    }
+
+    static class CachedFields {
+        private final Map<String,CachedEntry> cachedFields;
+
+        CachedFields() {
+            this.cachedFields = new HashMap<>();
+        }
+
+        enum ResultType {
+            INDEXED_FIELD, REVERSE_INDEXED_FIELD, TOKENIZED_FIELD, REVERSE_TOKENIZED_FIELD, STORED_FIELD, INDEX_ONLY_FIELD
+        }
+
+        boolean getOrComputeFieldResult(ResultType attributeType, String fieldName, Predicate<String> fn) {
+            CachedEntry ce = cachedFields.computeIfAbsent(fieldName, CachedEntry::new);
+            return ce.getResult(attributeType).getResultOrEvaluate(fn);
+        }
+
+        Map<String,CachedEntry> getCachedFields() {
+            return cachedFields;
+        }
+
+        class CachedEntry {
+            private final String fieldName;
+            private final MemoizedBooleanResult indexed;
+            private final MemoizedBooleanResult reverseIndexed;
+            private final MemoizedBooleanResult stored;
+            private final MemoizedBooleanResult indexedOnly;
+            private final MemoizedBooleanResult tokenized;
+            private final MemoizedBooleanResult reverseTokenized;
+
+            public CachedEntry(String fieldName) {
+                this.fieldName = fieldName;
+                this.indexed = new MemoizedBooleanResult();
+                this.reverseIndexed = new MemoizedBooleanResult();
+                this.stored = new MemoizedBooleanResult();
+                this.indexedOnly = new MemoizedBooleanResult();
+                this.tokenized = new MemoizedBooleanResult();
+                this.reverseTokenized = new MemoizedBooleanResult();
+            }
+
+            public MemoizedBooleanResult getResult(ResultType attributeType) {
+                MemoizedBooleanResult result;
+                switch (attributeType) {
+                    case INDEX_ONLY_FIELD:
+                        result = indexedOnly;
+                        break;
+                    case INDEXED_FIELD:
+                        result = indexed;
+                        break;
+                    case REVERSE_INDEXED_FIELD:
+                        result = reverseIndexed;
+                        break;
+                    case TOKENIZED_FIELD:
+                        result = tokenized;
+                        break;
+                    case REVERSE_TOKENIZED_FIELD:
+                        result = reverseTokenized;
+                        break;
+                    case STORED_FIELD:
+                        result = stored;
+                        break;
+                    default:
+                        throw new IllegalArgumentException("Undefined attribute type: " + attributeType);
+                }
+                return result;
+            }
+
+            public class MemoizedBooleanResult {
+                private boolean resultEvaluated;
+                private boolean result;
+
+                boolean isResultEvaluated() {
+                    return resultEvaluated;
+                }
+
+                boolean getResultValue() {
+                    return result;
+                }
+
+                public boolean getResultOrEvaluate(Predicate<String> evaluateFn) {
+                    if (!resultEvaluated) {
+                        result = evaluateFn.test(fieldName);
+                        resultEvaluated = true;
+                    }
+                    return result;
                 }
             }
         }

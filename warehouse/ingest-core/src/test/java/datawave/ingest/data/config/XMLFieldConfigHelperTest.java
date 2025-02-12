@@ -1,21 +1,32 @@
 package datawave.ingest.data.config;
 
-import static org.hamcrest.core.Is.is;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertThat;
-import static org.junit.Assert.assertTrue;
+import static java.nio.charset.StandardCharsets.UTF_8;
+
+import static datawave.ingest.data.config.XMLFieldConfigHelper.CachedFields.ResultType.INDEXED_FIELD;
+import static datawave.ingest.data.config.XMLFieldConfigHelper.CachedFields.ResultType.INDEX_ONLY_FIELD;
+import static datawave.ingest.data.config.XMLFieldConfigHelper.CachedFields.ResultType.STORED_FIELD;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Scanner;
+import java.util.function.Function;
+import java.util.stream.Stream;
 
+import org.apache.commons.io.IOUtils;
 import org.apache.hadoop.conf.Configuration;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
 import com.sun.net.httpserver.HttpServer;
 
@@ -26,6 +37,8 @@ import datawave.data.type.LcNoDiacriticsType;
 import datawave.data.type.NoOpType;
 import datawave.data.type.Type;
 import datawave.ingest.data.TypeRegistry;
+import datawave.ingest.data.config.XMLFieldConfigHelper.CachedFields.CachedEntry.MemoizedBooleanResult;
+import datawave.ingest.data.config.XMLFieldConfigHelper.CachedFields.ResultType;
 import datawave.ingest.data.config.ingest.BaseIngestHelper;
 import datawave.ingest.mapreduce.SimpleDataTypeHandler;
 import datawave.policy.IngestPolicyEnforcer;
@@ -35,7 +48,7 @@ public class XMLFieldConfigHelperTest {
     private final BaseIngestHelper ingestHelper = new TestBaseIngestHelper();
     private Configuration conf = new Configuration();
 
-    @Before
+    @BeforeEach
     public void setUp() {
 
         conf.set(DataTypeHelper.Properties.DATA_NAME, "test");
@@ -59,8 +72,8 @@ public class XMLFieldConfigHelperTest {
         try {
             FieldConfigHelper helper = XMLFieldConfigHelper.load(requestUrl, ingestHelper);
 
-            assertThat(helper.isIndexedField("A"), is(true));
-            assertThat(helper.isIndexedField("B"), is(false));
+            assertTrue(helper.isIndexedField("A"));
+            assertFalse(helper.isIndexedField("B"));
 
         } finally {
             server.stop(0);
@@ -97,7 +110,7 @@ public class XMLFieldConfigHelperTest {
         return sb.toString();
     }
 
-    @Test(expected = IllegalArgumentException.class)
+    @Test
     public void testBadTag() throws Exception {
         String input = "<?xml version=\"1.0\"?>\n" + "<fieldConfig>\n"
                         + "    <default stored=\"true\" indexed=\"false\" reverseIndexed=\"false\" tokenized=\"true\" reverseTokenized=\"true\" indexType=\"datawave.data.type.LcNoDiacriticsType\"/>\n"
@@ -106,10 +119,10 @@ public class XMLFieldConfigHelperTest {
                         + "    <field name=\"H\" indexType=\"datawave.data.type.DateType\"/>\n"
                         + "    <orange name=\"H\" indexType=\"datawave.data.type.DateType\"/>\n" + "</fieldConfig>";
 
-        XMLFieldConfigHelper helper = new XMLFieldConfigHelper(new ByteArrayInputStream(input.getBytes()), ingestHelper);
+        assertThrows(IllegalArgumentException.class, () -> new XMLFieldConfigHelper(new ByteArrayInputStream(input.getBytes()), ingestHelper));
     }
 
-    @Test(expected = IllegalArgumentException.class)
+    @Test
     public void testDuplicateField() throws Exception {
         String input = "<?xml version=\"1.0\"?>\n" + "<fieldConfig>\n"
                         + "    <default stored=\"true\" indexed=\"false\" reverseIndexed=\"false\" tokenized=\"true\" reverseTokenized=\"true\" indexType=\"datawave.data.type.LcNoDiacriticsType\"/>\n"
@@ -118,19 +131,19 @@ public class XMLFieldConfigHelperTest {
                         + "    <field name=\"H\" indexType=\"datawave.data.type.DateType\"/>\n"
                         + "    <field name=\"H\" indexType=\"datawave.data.type.HexStringType\"/>\n" + "</fieldConfig>";
 
-        FieldConfigHelper helper = new XMLFieldConfigHelper(new ByteArrayInputStream(input.getBytes()), ingestHelper);
+        assertThrows(IllegalArgumentException.class, () -> new XMLFieldConfigHelper(new ByteArrayInputStream(input.getBytes()), ingestHelper));
     }
 
-    @Test(expected = IllegalStateException.class)
+    @Test
     public void testMissingDefault() throws Exception {
         String input = "<?xml version=\"1.0\"?>\n" + "<fieldConfig>\n"
                         + "    <nomatch stored=\"true\" indexed=\"true\" reverseIndexed=\"true\" tokenized=\"true\"  reverseTokenized=\"true\" indexType=\"datawave.data.type.HexStringType\"/>\n"
                         + "    <field name=\"A\" indexed=\"true\"/>\n" + "</fieldConfig>";
 
-        FieldConfigHelper helper = new XMLFieldConfigHelper(new ByteArrayInputStream(input.getBytes()), ingestHelper);
+        assertThrows(IllegalStateException.class, () -> new XMLFieldConfigHelper(new ByteArrayInputStream(input.getBytes()), ingestHelper));
     }
 
-    @Test(expected = IllegalArgumentException.class)
+    @Test
     public void testIncompleteDefault() throws Exception {
         String input = "<?xml version=\"1.0\"?>\n" + "<fieldConfig>\n"
                         + "    <default stored=\"true\" reverseIndexed=\"false\" tokenized=\"true\" reverseTokenized=\"true\" indexType=\"datawave.data.type.LcNoDiacriticsType\"/>\n"
@@ -140,7 +153,7 @@ public class XMLFieldConfigHelperTest {
 
                         "</fieldConfig>";
 
-        FieldConfigHelper helper = new XMLFieldConfigHelper(new ByteArrayInputStream(input.getBytes()), ingestHelper);
+        assertThrows(IllegalArgumentException.class, () -> new XMLFieldConfigHelper(new ByteArrayInputStream(input.getBytes()), ingestHelper));
     }
 
     @Test
@@ -154,7 +167,7 @@ public class XMLFieldConfigHelperTest {
         // ok.
     }
 
-    @Test(expected = IllegalArgumentException.class)
+    @Test
     public void testIncompleteNomatch() throws Exception {
         String input = "<?xml version=\"1.0\"?>\n" + "<fieldConfig>\n"
                         + "    <default stored=\"true\" indexed=\"false\" reverseIndexed=\"false\" tokenized=\"true\" reverseTokenized=\"true\" indexType=\"datawave.data.type.LcNoDiacriticsType\"/>\n"
@@ -162,7 +175,7 @@ public class XMLFieldConfigHelperTest {
                         + "    <fieldPattern pattern=\"*J\" indexed=\"true\" indexType=\"datawave.data.type.MacAddressType\"/>\n"
                         + "    <field name=\"H\" indexType=\"datawave.data.type.DateType\"/>\n" + "</fieldConfig>";
 
-        FieldConfigHelper helper = new XMLFieldConfigHelper(new ByteArrayInputStream(input.getBytes()), ingestHelper);
+        assertThrows(IllegalArgumentException.class, () -> new XMLFieldConfigHelper(new ByteArrayInputStream(input.getBytes()), ingestHelper));
     }
 
     @Test
@@ -314,7 +327,7 @@ public class XMLFieldConfigHelperTest {
                 count++;
             }
         }
-        assertEquals("Expected a single type to match " + expected.getName() + ", but " + count + " types matched; List was: " + observedList, 1, count);
+        assertEquals(1, count, "Expected a single type to match " + expected.getName() + ", but " + count + " types matched; List was: " + observedList);
     }
 
     @Test
@@ -391,5 +404,57 @@ public class XMLFieldConfigHelperTest {
         assertType(LcNoDiacriticsType.class, ingestHelper.getDataTypes("F"));
         assertType(HexStringType.class, ingestHelper.getDataTypes("G"));
         assertType(DateType.class, ingestHelper.getDataTypes("H"));
+    }
+
+    @ParameterizedTest
+    @EnumSource(ResultType.class)
+    void testCachingBehaviorWillCallBaseMethods(ResultType testResultType) throws Exception {
+        // test intent is to run through the permutations of the result type enumeration
+        // verifying that the underlying memoization is dispatching to the correct
+        // slots and methods do not have an incorrect enum (i.e. copy/paste error)
+
+        String input = "<?xml version=\"1.0\"?>\n" + "<fieldConfig>\n"
+                        + "    <default stored=\"true\" indexed=\"true\" reverseIndexed=\"true\" tokenized=\"true\" reverseTokenized=\"true\" indexType=\"datawave.data.type.LcNoDiacriticsType\"/>\n"
+                        + "    <nomatch stored=\"true\" indexed=\"true\" reverseIndexed=\"true\" tokenized=\"true\"  reverseTokenized=\"true\" indexType=\"datawave.data.type.HexStringType\"/>\n"
+                        + "</fieldConfig>";
+
+        String field = "A";
+        XMLFieldConfigHelper helper = new XMLFieldConfigHelper(IOUtils.toInputStream(input, UTF_8), ingestHelper);
+        XMLFieldConfigHelper.CachedFields cr = helper.getCachedResults();
+        // @formatter:off
+        Map<ResultType, Function<String, Boolean>> callMap = Map.of(
+            ResultType.INDEXED_FIELD, helper::isIndexedField,
+            INDEX_ONLY_FIELD, helper::isIndexOnlyField,
+            ResultType.STORED_FIELD, helper::isStoredField,
+            ResultType.TOKENIZED_FIELD, helper::isTokenizedField,
+            ResultType.REVERSE_INDEXED_FIELD, helper::isReverseIndexedField,
+            ResultType.REVERSE_TOKENIZED_FIELD, helper::isReverseTokenizedField);
+        // @formatter:on
+
+        assertEquals(callMap.size(), ResultType.values().length, "Missing methods for result-type options");
+
+        Function<String,Boolean> call = callMap.get(testResultType);
+        boolean result = call.apply(field);
+
+        XMLFieldConfigHelper.CachedFields.CachedEntry cachedEntry = cr.getCachedFields().get(field);
+        if (Objects.requireNonNull(testResultType) == INDEX_ONLY_FIELD) {
+            // index-only-field dispatches to indexed-field and stored-field
+            // check that the result has been memoized so we know it was seen previously
+            Stream.of(INDEX_ONLY_FIELD, INDEXED_FIELD, STORED_FIELD).forEach(val -> {
+                assertTrue(cachedEntry.getResult(val).isResultEvaluated(), "Index-only eval-result incorrect");
+            });
+        } else {
+            // rest of types should fall through and check matching case that the eval-result is set
+            // and then assert that the non-checked fields have not yet been memoized
+            Stream.of(ResultType.values()).forEach(rt -> {
+                MemoizedBooleanResult memoizedResult = cachedEntry.getResult(rt);
+                if (rt != testResultType) {
+                    assertFalse(memoizedResult.isResultEvaluated(), "Result-type eval-result incorrect: " + rt);
+                } else {
+                    assertTrue(memoizedResult.isResultEvaluated(), "Result-type eval-result incorrect: " + rt);
+                    assertEquals(result, memoizedResult.getResultValue(), "Result-type result-val incorrect: " + rt);
+                }
+            });
+        }
     }
 }
