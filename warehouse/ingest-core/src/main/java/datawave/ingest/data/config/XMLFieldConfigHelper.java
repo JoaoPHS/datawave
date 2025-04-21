@@ -48,8 +48,8 @@ public final class XMLFieldConfigHelper implements FieldConfigHelper {
     private String noMatchFieldType = null;
 
     private final Map<String,FieldInfo> knownFields = new HashMap<>();
+    private final CachedFields cachedResults = new CachedFields();
     private TreeMap<Matcher,String> patterns = new TreeMap<>(new BaseIngestHelper.MatcherComparator());
-    private CachedFields cachedResults = new CachedFields();
 
     private static final String UNEXPECTED_ATTRIBUTE = "Unexpected attribute encountered in: ";
 
@@ -531,7 +531,11 @@ public final class XMLFieldConfigHelper implements FieldConfigHelper {
         private final Map<String,CachedEntry> cachedFields;
 
         CachedFields() {
-            this.cachedFields = new HashMap<>();
+            this(new HashMap<>());
+        }
+
+        CachedFields(Map<String,CachedEntry> cachedFields) {
+            this.cachedFields = cachedFields;
         }
 
         enum ResultType {
