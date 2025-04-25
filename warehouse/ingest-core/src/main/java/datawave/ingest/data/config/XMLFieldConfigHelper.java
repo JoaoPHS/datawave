@@ -1,12 +1,17 @@
 package datawave.ingest.data.config;
 
-import static datawave.ingest.data.config.XMLFieldConfigHelper.CachedFields.ResultType.INDEXED_FIELD;
-import static datawave.ingest.data.config.XMLFieldConfigHelper.CachedFields.ResultType.INDEX_ONLY_FIELD;
-import static datawave.ingest.data.config.XMLFieldConfigHelper.CachedFields.ResultType.REVERSE_INDEXED_FIELD;
-import static datawave.ingest.data.config.XMLFieldConfigHelper.CachedFields.ResultType.REVERSE_TOKENIZED_FIELD;
-import static datawave.ingest.data.config.XMLFieldConfigHelper.CachedFields.ResultType.STORED_FIELD;
-import static datawave.ingest.data.config.XMLFieldConfigHelper.CachedFields.ResultType.TOKENIZED_FIELD;
+import com.google.common.collect.ImmutableSet;
+import datawave.data.type.LcNoDiacriticsType;
+import datawave.ingest.data.config.ingest.BaseIngestHelper;
+import org.apache.commons.collections4.map.LRUMap;
+import org.apache.log4j.Logger;
+import org.xml.sax.Attributes;
+import org.xml.sax.SAXException;
+import org.xml.sax.helpers.DefaultHandler;
 
+import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.parsers.SAXParser;
+import javax.xml.parsers.SAXParserFactory;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
@@ -18,19 +23,12 @@ import java.util.TreeMap;
 import java.util.function.Predicate;
 import java.util.regex.Matcher;
 
-import javax.xml.parsers.ParserConfigurationException;
-import javax.xml.parsers.SAXParser;
-import javax.xml.parsers.SAXParserFactory;
-
-import org.apache.log4j.Logger;
-import org.xml.sax.Attributes;
-import org.xml.sax.SAXException;
-import org.xml.sax.helpers.DefaultHandler;
-
-import com.google.common.collect.ImmutableSet;
-
-import datawave.data.type.LcNoDiacriticsType;
-import datawave.ingest.data.config.ingest.BaseIngestHelper;
+import static datawave.ingest.data.config.XMLFieldConfigHelper.CachedFields.ResultType.INDEXED_FIELD;
+import static datawave.ingest.data.config.XMLFieldConfigHelper.CachedFields.ResultType.INDEX_ONLY_FIELD;
+import static datawave.ingest.data.config.XMLFieldConfigHelper.CachedFields.ResultType.REVERSE_INDEXED_FIELD;
+import static datawave.ingest.data.config.XMLFieldConfigHelper.CachedFields.ResultType.REVERSE_TOKENIZED_FIELD;
+import static datawave.ingest.data.config.XMLFieldConfigHelper.CachedFields.ResultType.STORED_FIELD;
+import static datawave.ingest.data.config.XMLFieldConfigHelper.CachedFields.ResultType.TOKENIZED_FIELD;
 
 /** Helper class to read XML based Field Configurations */
 public final class XMLFieldConfigHelper implements FieldConfigHelper {
@@ -48,7 +46,7 @@ public final class XMLFieldConfigHelper implements FieldConfigHelper {
     private String noMatchFieldType = null;
 
     private final Map<String,FieldInfo> knownFields = new HashMap<>();
-    private final CachedFields cachedResults = new CachedFields();
+    private final CachedFields cachedResults;
     private TreeMap<Matcher,String> patterns = new TreeMap<>(new BaseIngestHelper.MatcherComparator());
 
     private static final String UNEXPECTED_ATTRIBUTE = "Unexpected attribute encountered in: ";
@@ -72,15 +70,27 @@ public final class XMLFieldConfigHelper implements FieldConfigHelper {
      *             if the file can't be found or an exception occurs when reading the file.
      * @return null if no a null value was specified for fieldConfigFile - or a populated FieldConfigHelper.
      */
-    public static XMLFieldConfigHelper load(String fieldConfigFile, BaseIngestHelper baseIngestHelper) {
+    public static XMLFieldConfigHelper load(String fieldConfigFile, BaseIngestHelper baseIngestHelper, XMLFieldConfigOptions options) {
         if (fieldConfigFile == null) {
             return null;
+        }
+
+        Map<String,CachedFields.CachedEntry> innerFieldCache;
+        switch (options.getFieldCacheType()) {
+            case LRU:
+                innerFieldCache = new LRUMap<>(options.getCapacity());
+                break;
+            case MAP:
+                innerFieldCache = new HashMap<>();
+                break;
+            default:
+                throw new IllegalStateException("Unexpected field cache type: " + options.getFieldCacheType());
         }
 
         try (InputStream in = getAsStream(fieldConfigFile)) {
             if (in != null) {
                 log.info("Loading field configuration from configuration file: " + fieldConfigFile);
-                return new XMLFieldConfigHelper(in, baseIngestHelper);
+                return new XMLFieldConfigHelper(in, baseIngestHelper, new CachedFields(innerFieldCache));
             } else {
                 throw new IllegalArgumentException("Field config file '" + fieldConfigFile + "' not found!");
             }
@@ -116,9 +126,15 @@ public final class XMLFieldConfigHelper implements FieldConfigHelper {
     }
 
     public XMLFieldConfigHelper(InputStream in, BaseIngestHelper helper) throws ParserConfigurationException, SAXException, IOException {
+        this(in, helper, new CachedFields());
+    }
+
+    XMLFieldConfigHelper(InputStream in, BaseIngestHelper helper, CachedFields cachedFields) throws ParserConfigurationException, SAXException, IOException {
         final FieldConfigHandler handler = new FieldConfigHandler(this, helper);
         SAXParser parser = parserFactory.newSAXParser();
         parser.parse(in, handler);
+
+        this.cachedResults = cachedFields;
 
         log.info("Loaded FieldConfigHelper: " + this);
     }

@@ -40,6 +40,7 @@ import datawave.ingest.data.config.MaskedFieldHelper;
 import datawave.ingest.data.config.NormalizedContentInterface;
 import datawave.ingest.data.config.NormalizedFieldAndValue;
 import datawave.ingest.data.config.XMLFieldConfigHelper;
+import datawave.ingest.data.config.XMLFieldConfigOptions;
 import datawave.util.StringUtils;
 
 /**
@@ -260,7 +261,7 @@ public abstract class BaseIngestHelper extends AbstractIngestHelper implements C
             if (log.isDebugEnabled()) {
                 log.debug("Field config file " + fieldConfigFile + " specified for: " + this.getType().typeName() + FIELD_CONFIG_FILE);
             }
-            this.fieldConfigHelper = XMLFieldConfigHelper.load(fieldConfigFile, this);
+            this.fieldConfigHelper = XMLFieldConfigHelper.load(fieldConfigFile, this, XMLFieldConfigOptions.parseFrom(config, getType()));
         }
 
         // Process the indexed fields
