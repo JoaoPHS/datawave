@@ -31,7 +31,6 @@ import javax.security.auth.login.LoginException;
 
 import org.apache.deltaspike.core.api.exclude.Exclude;
 import org.jboss.logging.Logger;
-import org.jboss.security.JSSESecurityDomain;
 import org.jboss.security.SimpleGroup;
 import org.jboss.security.SimplePrincipal;
 import org.jboss.security.auth.callback.ObjectCallback;
@@ -46,6 +45,7 @@ import com.fasterxml.jackson.module.jaxb.JaxbAnnotationModule;
 
 import datawave.configuration.DatawaveEmbeddedProjectStageHolder;
 import datawave.configuration.spring.BeanProvider;
+import datawave.security.SSLContextInfo;
 import datawave.security.auth.DatawaveCredential;
 import datawave.security.authorization.AuthorizationException;
 import datawave.security.authorization.DatawavePrincipal;
@@ -80,7 +80,7 @@ public class DatawavePrincipalLoginModule extends AbstractServerLoginModule {
     @Inject
     private DatawaveUserService datawaveUserService;
     @Inject
-    private JSSESecurityDomain domain;
+    private SSLContextInfo sslContextInfo;
 
     private JWTTokenHandler jwtTokenHandler;
 
@@ -164,8 +164,8 @@ public class DatawavePrincipalLoginModule extends AbstractServerLoginModule {
             mapper.registerModule(new GuavaModule());
             mapper.registerModule(new JaxbAnnotationModule());
 
-            String alias = domain.getKeyStore().aliases().nextElement();
-            X509KeyManager keyManager = (X509KeyManager) domain.getKeyManagers()[0];
+            String alias = sslContextInfo.getKeyStore().aliases().nextElement();
+            X509KeyManager keyManager = (X509KeyManager) sslContextInfo.getKeyManagers()[0];
             X509Certificate[] certs = keyManager.getCertificateChain(alias);
             Key signingKey = keyManager.getPrivateKey(alias);
 
@@ -502,9 +502,9 @@ public class DatawavePrincipalLoginModule extends AbstractServerLoginModule {
         boolean isValid = false;
         KeyStore keyStore = null;
         KeyStore trustStore = null;
-        if (domain != null) {
-            keyStore = domain.getKeyStore();
-            trustStore = domain.getTrustStore();
+        if (sslContextInfo != null) {
+            keyStore = sslContextInfo.getKeyStore();
+            trustStore = sslContextInfo.getTrustStore();
         }
         if (trustStore == null) {
             trustStore = keyStore;

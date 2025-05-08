@@ -41,7 +41,6 @@ import org.apache.hadoop.mapreduce.OutputFormat;
 import org.apache.hadoop.mapreduce.lib.output.SequenceFileOutputFormat;
 import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 import org.apache.log4j.Logger;
-import org.jboss.security.JSSESecurityDomain;
 
 import datawave.core.common.connection.AccumuloConnectionFactory;
 import datawave.core.mapreduce.bulkresults.map.BulkResultsTableOutputMapper;
@@ -53,6 +52,7 @@ import datawave.microservice.authorization.util.AuthorizationsUtil;
 import datawave.microservice.mapreduce.bulkresults.map.SerializationFormat;
 import datawave.microservice.query.Query;
 import datawave.mr.bulk.BulkInputFormat;
+import datawave.security.SSLContextInfo;
 import datawave.security.authorization.DatawavePrincipal;
 import datawave.security.authorization.UserOperations;
 import datawave.security.iterator.ConfigurableVisibilityFilter;
@@ -66,7 +66,7 @@ import datawave.webservice.query.factory.Persister;
 import datawave.webservice.query.runner.RunningQuery;
 
 public class BulkResultsJobConfiguration extends MapReduceJobConfiguration implements NeedCallerDetails, NeedAccumuloConnectionFactory, NeedAccumuloDetails,
-                NeedQueryLogicFactory, NeedQueryPersister, NeedQueryCache, NeedSecurityDomain {
+                NeedQueryLogicFactory, NeedQueryPersister, NeedQueryCache, NeedSSLContextInfo {
 
     /**
      * Container for query settings
@@ -112,7 +112,7 @@ public class BulkResultsJobConfiguration extends MapReduceJobConfiguration imple
 
     private Logger log = Logger.getLogger(this.getClass());
 
-    private JSSESecurityDomain jsseSecurityDomain = null;
+    private SSLContextInfo sslContextInfo = null;
     private AccumuloConnectionFactory connectionFactory;
     private QueryLogicFactory queryFactory;
     private UserOperations userOperations;
@@ -401,8 +401,8 @@ public class BulkResultsJobConfiguration extends MapReduceJobConfiguration imple
     }
 
     @Override
-    public void setSecurityDomain(JSSESecurityDomain jsseSecurityDomain) {
-        this.jsseSecurityDomain = jsseSecurityDomain;
+    public void setSslContextInfo(SSLContextInfo sslContextInfo) {
+        this.sslContextInfo = sslContextInfo;
     }
 
     public void setUserOperations(UserOperations userOperations) {
@@ -416,7 +416,7 @@ public class BulkResultsJobConfiguration extends MapReduceJobConfiguration imple
             systemProperties.putAll(this.jobSystemProperties);
         }
 
-        if (this.jsseSecurityDomain != null) {
+        if (this.sslContextInfo != null) {
             String useJobCacheString = systemProperties.getProperty("dw.mapreduce.securitydomain.useJobCache");
             boolean useJobCache = Boolean.parseBoolean(useJobCacheString);
             if (useJobCache) {
@@ -440,19 +440,19 @@ public class BulkResultsJobConfiguration extends MapReduceJobConfiguration imple
                 }
             }
 
-            if (jsseSecurityDomain.getClientAlias() != null) {
-                systemProperties.setProperty("dw.mapreduce.securitydomain.clientAlias", jsseSecurityDomain.getClientAlias());
+            if (sslContextInfo.getClientAlias() != null) {
+                systemProperties.setProperty("dw.mapreduce.securitydomain.clientAlias", sslContextInfo.getClientAlias());
             }
-            if (jsseSecurityDomain.getServerAlias() != null) {
-                systemProperties.setProperty("dw.mapreduce.securitydomain.serverAlias", jsseSecurityDomain.getServerAlias());
+            if (sslContextInfo.getServerAlias() != null) {
+                systemProperties.setProperty("dw.mapreduce.securitydomain.serverAlias", sslContextInfo.getServerAlias());
             }
-            if (jsseSecurityDomain.getCipherSuites() != null) {
-                systemProperties.setProperty("dw.mapreduce.securitydomain.cipherSuites", StringUtils.join(jsseSecurityDomain.getCipherSuites(), ','));
+            if (sslContextInfo.getCipherSuites() != null) {
+                systemProperties.setProperty("dw.mapreduce.securitydomain.cipherSuites", StringUtils.join(sslContextInfo.getCipherSuites(), ','));
             }
-            if (jsseSecurityDomain.getProtocols() != null) {
-                systemProperties.setProperty("dw.mapreduce.securitydomain.protocols", StringUtils.join(jsseSecurityDomain.getProtocols(), ','));
+            if (sslContextInfo.getProtocols() != null) {
+                systemProperties.setProperty("dw.mapreduce.securitydomain.protocols", StringUtils.join(sslContextInfo.getProtocols(), ','));
             }
-            systemProperties.setProperty("dw.mapreduce.securitydomain.clientAuth", Boolean.toString(jsseSecurityDomain.isClientAuth()));
+            systemProperties.setProperty("dw.mapreduce.securitydomain.clientAuth", Boolean.toString(sslContextInfo.isClientAuth()));
         }
         writeProperties(jobId, job, fs, classpath, systemProperties);
     }

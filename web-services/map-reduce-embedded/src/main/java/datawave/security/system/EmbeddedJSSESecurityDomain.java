@@ -6,7 +6,6 @@ import java.net.URL;
 import java.security.Key;
 import java.security.KeyStore;
 import java.security.cert.Certificate;
-import java.util.Properties;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.Priority;
@@ -20,12 +19,13 @@ import javax.net.ssl.TrustManagerFactory;
 
 import org.apache.commons.lang.StringUtils;
 import org.apache.deltaspike.core.api.config.ConfigProperty;
-import org.jboss.security.JSSESecurityDomain;
 import org.jboss.security.PicketBoxMessages;
+
+import datawave.security.SSLContextInfo;
 
 @Alternative
 @Priority(Interceptor.Priority.APPLICATION)
-public class EmbeddedJSSESecurityDomain implements JSSESecurityDomain {
+public class EmbeddedJSSESecurityDomain implements SSLContextInfo {
 
     @Inject
     @ConfigProperty(name = "dw.mapreduce.securitydomain.keyStoreURL")
@@ -82,7 +82,6 @@ public class EmbeddedJSSESecurityDomain implements JSSESecurityDomain {
     private boolean clientAuth;
     private String[] cipherSuites;
     private String[] protocols;
-    private String name = this.getClass().getName();
 
     public EmbeddedJSSESecurityDomain() {
 
@@ -211,7 +210,7 @@ public class EmbeddedJSSESecurityDomain implements JSSESecurityDomain {
     }
 
     @Override
-    public Key getKey(String alias, String serviceAuthToken) throws Exception {
+    public Key getKey(String alias) throws Exception {
         return this.keyStore.getKey(alias, this.keyStorePassword.toCharArray());
     }
 
@@ -228,15 +227,5 @@ public class EmbeddedJSSESecurityDomain implements JSSESecurityDomain {
     @Override
     public String[] getProtocols() {
         return this.protocols;
-    }
-
-    @Override
-    public Properties getAdditionalProperties() {
-        return null;
-    }
-
-    @Override
-    public String getSecurityDomain() {
-        return this.name;
     }
 }

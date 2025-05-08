@@ -62,7 +62,6 @@ import org.apache.log4j.Logger;
 import org.apache.oozie.client.OozieClient;
 import org.jboss.resteasy.annotations.GZIP;
 import org.jboss.resteasy.specimpl.MultivaluedMapImpl;
-import org.jboss.security.JSSESecurityDomain;
 
 import datawave.annotation.Required;
 import datawave.configuration.DatawaveEmbeddedProjectStageHolder;
@@ -71,6 +70,7 @@ import datawave.core.common.audit.PrivateAuditConstants;
 import datawave.core.common.connection.AccumuloConnectionFactory;
 import datawave.core.query.logic.QueryLogicFactory;
 import datawave.marking.SecurityMarking;
+import datawave.security.SSLContextInfo;
 import datawave.security.authorization.DatawavePrincipal;
 import datawave.security.system.ServerPrincipal;
 import datawave.security.util.WSAuthorizationsUtil;
@@ -90,7 +90,7 @@ import datawave.webservice.mr.configuration.NeedCallerDetails;
 import datawave.webservice.mr.configuration.NeedQueryCache;
 import datawave.webservice.mr.configuration.NeedQueryLogicFactory;
 import datawave.webservice.mr.configuration.NeedQueryPersister;
-import datawave.webservice.mr.configuration.NeedSecurityDomain;
+import datawave.webservice.mr.configuration.NeedSSLContextInfo;
 import datawave.webservice.mr.configuration.OozieJobConfiguration;
 import datawave.webservice.mr.configuration.OozieJobConstants;
 import datawave.webservice.mr.state.MapReduceStatePersisterBean;
@@ -127,7 +127,7 @@ public class MapReduceBean {
     private EJBContext ctx;
 
     @Inject
-    private JSSESecurityDomain jsseSecurityDomain;
+    private SSLContextInfo sslContextInfo;
 
     @Inject
     private Persister queryPersister;
@@ -462,8 +462,8 @@ public class MapReduceBean {
             ((NeedQueryCache) job).setQueryCache(cache);
         }
 
-        if (job instanceof NeedSecurityDomain) {
-            ((NeedSecurityDomain) job).setSecurityDomain(this.jsseSecurityDomain);
+        if (job instanceof NeedSSLContextInfo) {
+            ((NeedSSLContextInfo) job).setSslContextInfo(this.sslContextInfo);
         }
 
         // If this job is being restarted, then the jobId will be the same. The restart method
