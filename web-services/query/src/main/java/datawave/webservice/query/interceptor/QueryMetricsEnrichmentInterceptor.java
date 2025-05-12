@@ -14,9 +14,9 @@ import javax.ws.rs.ext.WriterInterceptorContext;
 
 import org.apache.deltaspike.core.api.exclude.Exclude;
 import org.apache.log4j.Logger;
-import org.jboss.resteasy.core.interception.ContainerResponseContextImpl;
-import org.jboss.resteasy.core.interception.PreMatchContainerRequestContext;
-import org.jboss.resteasy.util.FindAnnotation;
+import org.jboss.resteasy.core.interception.jaxrs.ContainerResponseContextImpl;
+import org.jboss.resteasy.core.interception.jaxrs.PreMatchContainerRequestContext;
+import org.jboss.resteasy.spi.util.FindAnnotation;
 
 import datawave.configuration.DatawaveEmbeddedProjectStageHolder;
 import datawave.core.query.logic.BaseQueryLogic;
