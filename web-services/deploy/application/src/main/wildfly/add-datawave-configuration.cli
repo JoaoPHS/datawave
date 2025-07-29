@@ -12,7 +12,7 @@ embed-server --server-config=standalone-full.xml
 module add --name=com.mysql.driver --dependencies=javax.api,javax.transaction.api,com.fasterxml.jackson.core.jackson-core --resources=mysql/mysql-connector-j-${version.mysql-connector}.jar
 
 # Add a module containing custom datawave elytron components.
-module add --name=gov.nsa.datawave.elytron --dependencies=org.apache.log4j,org.wildfly.security.elytron,org.wildfly.extension.elytron --resources=elytron/datawave-ws-security-${project.version}.jar
+# module add --name=datawave.elytron --dependencies=org.apache.log4j,org.wildfly.security.elytron,org.wildfly.extension.elytron,com.fasterxml.jackson.core.jackson-core,com.fasterxml.jackson.core.jackson-databind,com.fasterxml.jackson.datatype.jackson-datatype-guava --resources=elytron/datawave-ws-security-${project.version}.jar
 
 # Change default ports to listen on all interfaces (can still override on command line)
 /interface=public/:write-attribute(name=inet-address,value="${jboss.bind.address:0.0.0.0}")
@@ -165,6 +165,62 @@ module add --name=gov.nsa.datawave.elytron --dependencies=org.apache.log4j,org.w
 /subsystem=infinispan/cache-container=security/local-cache=security/component=expiration:add(lifespan=300000)
 
 #
+# Configure custom loggers and categories
+#
+/subsystem=undertow/server=default-server/host=default-host/setting=access-log:add(prefix="access",pattern="%h %{i,x-originating-host} %{c,query-session-id} \"%u\" %t \"%r\" %s %b %D %I")
+/subsystem=logging/pattern-formatter=PATTERN:write-attribute(name=pattern,value="%d{yyyy-MM-dd HH:mm:ss,SSS} %-5p [%c] (%t) %x %s%e%n")
+/subsystem=logging/pattern-formatter=COLOR-PATTERN:write-attribute(name=pattern,value="%K{level}%d{HH:mm:ss,SSS} %-5p [%c] (%t) %x %s%e%n")
+
+/subsystem=logging/periodic-rotating-file-handler=QUERY_LOG/:add(level=DEBUG,suffix=".yyyy-MM-dd",append=true,autoflush=true,named-formatter=PATTERN,file={relative-to=>"jboss.server.log.dir", path=>"Query.log"})
+/subsystem=logging/periodic-rotating-file-handler=CACHED_LOG/:add(level=INFO,suffix=".yyyy-MM-dd",append=true,autoflush=true,named-formatter=PATTERN,file={relative-to=>"jboss.server.log.dir", path=>"CachedResults.log"})
+/subsystem=logging/periodic-rotating-file-handler=SECURITY_LOG/:add(level=TRACE,suffix=".yyyy-MM-dd",append=true,autoflush=true,named-formatter=PATTERN,file={relative-to=>"jboss.server.log.dir", path=>"Security.log"})
+/subsystem=logging/periodic-rotating-file-handler=MAPREDUCE_LOG/:add(level=TRACE,suffix=".yyyy-MM-dd",append=true,autoflush=true,named-formatter=PATTERN,file={relative-to=>"jboss.server.log.dir", path=>"MapReduce.log"})
+/subsystem=logging/periodic-rotating-file-handler=MODIFICATION_LOG/:add(level=TRACE,suffix=".yyyy-MM-dd",append=true,autoflush=true,named-formatter=PATTERN,file={relative-to=>"jboss.server.log.dir", path=>"ModificationService.log"})
+/subsystem=logging/periodic-rotating-file-handler=DISTRIBUTED_QUERY_LOG/:add(level=TRACE,suffix=".yyyy-MM-dd",append=true,autoflush=true,named-formatter=PATTERN,file={relative-to=>"jboss.server.log.dir", path=>"DistributedQueryService.log"})
+/subsystem=logging/periodic-rotating-file-handler=RESTEASY_LOG/:add(level=TRACE,suffix=".yyyy-MM-dd",append=true,autoflush=true,named-formatter=PATTERN,file={relative-to=>"jboss.server.log.dir", path=>"RestEasy.log"})
+
+/subsystem=logging/logger=datawave.query:add(use-parent-handlers=false,handlers=["QUERY_LOG"],level=DEBUG)
+/subsystem=logging/logger=datawave.webservice.common.cache.SharedCacheCoordinator:add(use-parent-handlers=false,handlers=["QUERY_LOG"],level=INFO)
+/subsystem=logging/logger=datawave.webservice.query.factory:add(use-parent-handlers=false,handlers=["QUERY_LOG"],level=DEBUG)
+/subsystem=logging/logger=datawave.webservice.query.iterator:add(use-parent-handlers=false,handlers=["QUERY_LOG"],level=DEBUG)
+/subsystem=logging/logger=datawave.webservice.query.logic:add(use-parent-handlers=false,handlers=["QUERY_LOG"],level=DEBUG)
+/subsystem=logging/logger=datawave.webservice.query.metric:add(use-parent-handlers=false,handlers=["QUERY_LOG"],level=DEBUG)
+/subsystem=logging/logger=datawave.webservice.query.runner:add(use-parent-handlers=false,handlers=["QUERY_LOG"],level=DEBUG)
+/subsystem=logging/logger=datawave.webservice.query.util:add(use-parent-handlers=false,handlers=["QUERY_LOG"],level=DEBUG)
+/subsystem=logging/logger=datawave.webservice.query.cache.QueryExpirationBean:add(use-parent-handlers=false,handlers=["QUERY_LOG"],level=INFO)
+/subsystem=logging/logger=datawave.query.tables:add(use-parent-handlers=false,handlers=["QUERY_LOG"],level=INFO)
+/subsystem=logging/logger=datawave.query.parser:add(use-parent-handlers=false,handlers=["QUERY_LOG"],level=INFO)
+/subsystem=logging/logger=datawave.query.metrics.AccumuloRecordWriter:add(use-parent-handlers=false,handlers=["QUERY_LOG"],level=INFO)
+/subsystem=logging/logger=datawave.webservice.query.interceptor:add(use-parent-handlers=false,handlers=["QUERY_LOG"],level=INFO)
+/subsystem=logging/logger=datawave.webservice.query.database.CachedResultsCleanupBean:add(use-parent-handlers=false,handlers=["CACHED_LOG"],level=INFO)
+/subsystem=logging/logger=datawave.webservice.query.cache.CachedResultsExpirationBean:add(use-parent-handlers=false,handlers=["CACHED_LOG"],level=INFO)
+/subsystem=logging/logger=datawave.webservice.results.cached:add(use-parent-handlers=false,handlers=["CACHED_LOG"],level=INFO)
+/subsystem=logging/logger=datawave.webservice.query.cachedresults:add(use-parent-handlers=false,handlers=["CACHED_LOG"],level=INFO)
+/subsystem=logging/logger=datawave.security:add(use-parent-handlers=false,handlers=["SECURITY_LOG"])
+/subsystem=logging/logger=org.jboss.security.auth:add(use-parent-handlers=false,handlers=["SECURITY_LOG"])
+/subsystem=logging/logger=org.jboss.security.authorization.modules.ejb.EJBPolicyModuleDelegate:add(use-parent-handlers=false,handlers=["SECURITY_LOG"])
+/subsystem=logging/logger=org.wildfly.security:add(use-parent-handlers=false,handlers=["SECURITY_LOG"])
+/subsystem=logging/logger=org.wildfly.security.tls:add(use-parent-handlers=false,handlers=["SECURITY_LOG"])
+/subsystem=logging/logger=org.wildfly.extension.elytron:add(use-parent-handlers=false,handlers=["SECURITY_LOG"])
+/subsystem=logging/logger=javax.security.sasl:add(use-parent-handlers=false,handlers=["SECURITY_LOG"])
+/subsystem=logging/logger=datawave.webservice.mr:add(use-parent-handlers=false,handlers=["MAPREDUCE_LOG"])
+/subsystem=logging/logger=org.apache.hadoop.mapred:add(use-parent-handlers=false,handlers=["MAPREDUCE_LOG"])
+/subsystem=logging/logger=org.apache.hadoop.mapreduce:add(use-parent-handlers=false,handlers=["MAPREDUCE_LOG"])
+/subsystem=logging/logger=org.apache.hadoop.yarn.client:add(use-parent-handlers=false,handlers=["MAPREDUCE_LOG"])
+/subsystem=logging/logger=org.apache.accumulo.core.client.mapreduce:add(use-parent-handlers=false,handlers=["MAPREDUCE_LOG"])
+/subsystem=logging/logger=datawave.webservice.modification:add(use-parent-handlers=false,handlers=["MODIFICATION_LOG"])
+/subsystem=logging/logger=datawave.webservice.query.distributed:add(use-parent-handlers=false,handlers=["DISTRIBUTED_QUERY_LOG"])
+/subsystem=logging/logger=org.jboss.resteasy.core:add(use-parent-handlers=false,handlers=["RESTEASY_LOG"])
+/subsystem=logging/logger=org.jboss.resteasy.plugins.providers:add(use-parent-handlers=false,handlers=["RESTEASY_LOG"])
+/subsystem=logging/logger=org.jboss.resteasy.plugins.server:add(use-parent-handlers=false,handlers=["RESTEASY_LOG"])
+/subsystem=logging/logger=org.jboss.resteasy.specimpl:add(use-parent-handlers=false,handlers=["RESTEASY_LOG"])
+/subsystem=logging/logger=datawave.resteasy.interceptor:add(use-parent-handlers=false,handlers=["RESTEASY_LOG"])
+
+# Custom log levels
+/subsystem=logging/logger=httpclient.wire:add(level=TRACE)
+/subsystem=logging/logger=datawave.security.util.DnUtils:add(level=DEBUG)
+
+#
 # Configure SSL (legacy)
 #
 # /core-service=management/security-realm=SSLRealm/:add
@@ -225,7 +281,7 @@ module add --name=gov.nsa.datawave.elytron --dependencies=org.apache.log4j,org.w
 # - verifier=STRING (optional, default=null)
 #       The class name of an org.jboss.security.auths.certs.X509CertificateVerifier that will be
 # - ocspLevel=STRING (optional, default=null)
-#       Sets the oscp level of the verifier. Required when the verifier is datawave.security.login.DatawaveCertVerifier.
+#       Sets the oscp level of the verifier. Required when the verifier is datawave.security.realm.DatawaveCertVerifier.
 # - trustedHeaderLogin=BOOLEAN (optional, default=false)
 #       When set to true, the client certificate will not be validated, and will be treated as a valid certificate.
 # - jwtHeaderLogin=BOOLEAN (optional, default=false)
@@ -236,9 +292,9 @@ module add --name=gov.nsa.datawave.elytron --dependencies=org.apache.log4j,org.w
 #       ':' delimited list of roles that must be present if the client is a terminal server
 /subsystem=elytron/custom-realm=datawaveRealm:add( \
   class-name=datawave.security.realm.DatawavePrincipalSecurityRealm, \
-  module="gov.nsa.datawave.elytron", \
+  module="datawave.elytron", \
   configuration={ \
-    verifier="datawave.security.login.DatawaveCertVerifier", \
+    verifier="datawave.security.realm.DatawaveCertVerifier", \
     ocspLevel="off", \
     allowUserProxying="false", \
     trustedHeaderLogin="${trusted.header.login}" \
@@ -305,62 +361,6 @@ jms-queue add --queue-address=AccumuloTableCacheDLQ --entries=queue/AccumuloTabl
 
 # Configure the H2 DataSource used by the DatabaseUserService
 /subsystem=datasources/data-source=DatabaseUserServiceDS:add(jndi-name=java:jboss/datasources/DatabaseUserServiceDS,connection-url="jdbc:h2:${jboss.server.config.dir}/h2/databaseDatawaveUsers",user-name=sa,password=sa,driver-name=h2)
-
-#
-# Configure custom loggers and categories
-#
-/subsystem=undertow/server=default-server/host=default-host/setting=access-log:add(prefix="access",pattern="%h %{i,x-originating-host} %{c,query-session-id} \"%u\" %t \"%r\" %s %b %D %I")
-/subsystem=logging/pattern-formatter=PATTERN:write-attribute(name=pattern,value="%d{yyyy-MM-dd HH:mm:ss,SSS} %-5p [%c] (%t) %x %s%e%n")
-/subsystem=logging/pattern-formatter=COLOR-PATTERN:write-attribute(name=pattern,value="%K{level}%d{HH:mm:ss,SSS} %-5p [%c] (%t) %x %s%e%n")
-
-/subsystem=logging/periodic-rotating-file-handler=QUERY_LOG/:add(level=DEBUG,suffix=".yyyy-MM-dd",append=true,autoflush=true,named-formatter=PATTERN,file={relative-to=>"jboss.server.log.dir", path=>"Query.log"})
-/subsystem=logging/periodic-rotating-file-handler=CACHED_LOG/:add(level=INFO,suffix=".yyyy-MM-dd",append=true,autoflush=true,named-formatter=PATTERN,file={relative-to=>"jboss.server.log.dir", path=>"CachedResults.log"})
-/subsystem=logging/periodic-rotating-file-handler=SECURITY_LOG/:add(level=TRACE,suffix=".yyyy-MM-dd",append=true,autoflush=true,named-formatter=PATTERN,file={relative-to=>"jboss.server.log.dir", path=>"Security.log"})
-/subsystem=logging/periodic-rotating-file-handler=MAPREDUCE_LOG/:add(level=TRACE,suffix=".yyyy-MM-dd",append=true,autoflush=true,named-formatter=PATTERN,file={relative-to=>"jboss.server.log.dir", path=>"MapReduce.log"})
-/subsystem=logging/periodic-rotating-file-handler=MODIFICATION_LOG/:add(level=TRACE,suffix=".yyyy-MM-dd",append=true,autoflush=true,named-formatter=PATTERN,file={relative-to=>"jboss.server.log.dir", path=>"ModificationService.log"})
-/subsystem=logging/periodic-rotating-file-handler=DISTRIBUTED_QUERY_LOG/:add(level=TRACE,suffix=".yyyy-MM-dd",append=true,autoflush=true,named-formatter=PATTERN,file={relative-to=>"jboss.server.log.dir", path=>"DistributedQueryService.log"})
-/subsystem=logging/periodic-rotating-file-handler=RESTEASY_LOG/:add(level=TRACE,suffix=".yyyy-MM-dd",append=true,autoflush=true,named-formatter=PATTERN,file={relative-to=>"jboss.server.log.dir", path=>"RestEasy.log"})
-
-/subsystem=logging/logger=datawave.query:add(use-parent-handlers=false,handlers=["QUERY_LOG"],level=DEBUG)
-/subsystem=logging/logger=datawave.webservice.common.cache.SharedCacheCoordinator:add(use-parent-handlers=false,handlers=["QUERY_LOG"],level=INFO)
-/subsystem=logging/logger=datawave.webservice.query.factory:add(use-parent-handlers=false,handlers=["QUERY_LOG"],level=DEBUG)
-/subsystem=logging/logger=datawave.webservice.query.iterator:add(use-parent-handlers=false,handlers=["QUERY_LOG"],level=DEBUG)
-/subsystem=logging/logger=datawave.webservice.query.logic:add(use-parent-handlers=false,handlers=["QUERY_LOG"],level=DEBUG)
-/subsystem=logging/logger=datawave.webservice.query.metric:add(use-parent-handlers=false,handlers=["QUERY_LOG"],level=DEBUG)
-/subsystem=logging/logger=datawave.webservice.query.runner:add(use-parent-handlers=false,handlers=["QUERY_LOG"],level=DEBUG)
-/subsystem=logging/logger=datawave.webservice.query.util:add(use-parent-handlers=false,handlers=["QUERY_LOG"],level=DEBUG)
-/subsystem=logging/logger=datawave.webservice.query.cache.QueryExpirationBean:add(use-parent-handlers=false,handlers=["QUERY_LOG"],level=INFO)
-/subsystem=logging/logger=datawave.query.tables:add(use-parent-handlers=false,handlers=["QUERY_LOG"],level=INFO)
-/subsystem=logging/logger=datawave.query.parser:add(use-parent-handlers=false,handlers=["QUERY_LOG"],level=INFO)
-/subsystem=logging/logger=datawave.query.metrics.AccumuloRecordWriter:add(use-parent-handlers=false,handlers=["QUERY_LOG"],level=INFO)
-/subsystem=logging/logger=datawave.webservice.query.interceptor:add(use-parent-handlers=false,handlers=["QUERY_LOG"],level=INFO)
-/subsystem=logging/logger=datawave.webservice.query.database.CachedResultsCleanupBean:add(use-parent-handlers=false,handlers=["CACHED_LOG"],level=INFO)
-/subsystem=logging/logger=datawave.webservice.query.cache.CachedResultsExpirationBean:add(use-parent-handlers=false,handlers=["CACHED_LOG"],level=INFO)
-/subsystem=logging/logger=datawave.webservice.results.cached:add(use-parent-handlers=false,handlers=["CACHED_LOG"],level=INFO)
-/subsystem=logging/logger=datawave.webservice.query.cachedresults:add(use-parent-handlers=false,handlers=["CACHED_LOG"],level=INFO)
-/subsystem=logging/logger=datawave.security:add(use-parent-handlers=false,handlers=["SECURITY_LOG"])
-/subsystem=logging/logger=org.jboss.security.auth:add(use-parent-handlers=false,handlers=["SECURITY_LOG"])
-/subsystem=logging/logger=org.jboss.security.authorization.modules.ejb.EJBPolicyModuleDelegate:add(use-parent-handlers=false,handlers=["SECURITY_LOG"])
-/subsystem=logging/logger=org.wildfly.security:add(use-parent-handlers=false,handlers=["SECURITY_LOG"])
-/subsystem=logging/logger=org.wildfly.security.tls:add(use-parent-handlers=false,handlers=["SECURITY_LOG"])
-/subsystem=logging/logger=org.wildfly.extension.elytron:add(use-parent-handlers=false,handlers=["SECURITY_LOG"])
-/subsystem=logging/logger=javax.security.sasl:add(use-parent-handlers=false,handlers=["SECURITY_LOG"])
-/subsystem=logging/logger=datawave.webservice.mr:add(use-parent-handlers=false,handlers=["MAPREDUCE_LOG"])
-/subsystem=logging/logger=org.apache.hadoop.mapred:add(use-parent-handlers=false,handlers=["MAPREDUCE_LOG"])
-/subsystem=logging/logger=org.apache.hadoop.mapreduce:add(use-parent-handlers=false,handlers=["MAPREDUCE_LOG"])
-/subsystem=logging/logger=org.apache.hadoop.yarn.client:add(use-parent-handlers=false,handlers=["MAPREDUCE_LOG"])
-/subsystem=logging/logger=org.apache.accumulo.core.client.mapreduce:add(use-parent-handlers=false,handlers=["MAPREDUCE_LOG"])
-/subsystem=logging/logger=datawave.webservice.modification:add(use-parent-handlers=false,handlers=["MODIFICATION_LOG"])
-/subsystem=logging/logger=datawave.webservice.query.distributed:add(use-parent-handlers=false,handlers=["DISTRIBUTED_QUERY_LOG"])
-/subsystem=logging/logger=org.jboss.resteasy.core:add(use-parent-handlers=false,handlers=["RESTEASY_LOG"])
-/subsystem=logging/logger=org.jboss.resteasy.plugins.providers:add(use-parent-handlers=false,handlers=["RESTEASY_LOG"])
-/subsystem=logging/logger=org.jboss.resteasy.plugins.server:add(use-parent-handlers=false,handlers=["RESTEASY_LOG"])
-/subsystem=logging/logger=org.jboss.resteasy.specimpl:add(use-parent-handlers=false,handlers=["RESTEASY_LOG"])
-/subsystem=logging/logger=datawave.resteasy.interceptor:add(use-parent-handlers=false,handlers=["RESTEASY_LOG"])
-
-# Custom log levels
-/subsystem=logging/logger=httpclient.wire:add(level=TRACE)
-/subsystem=logging/logger=datawave.security.util.DnUtils:add(level=DEBUG)
 
 # Turn off messages telling us we returned unknown connections (since we acquire a connection in one method and return it from another in cached results code)
 /subsystem=logging/logger=org.jboss.jca.core.connectionmanager.listener.TxConnectionListener:add(level=WARN)

@@ -8,6 +8,7 @@ import javax.enterprise.inject.Default;
 import javax.enterprise.inject.Produces;
 
 import org.apache.deltaspike.core.api.exclude.Exclude;
+import org.apache.log4j.Logger;
 import org.jboss.security.AuthenticationManager;
 import org.jboss.security.CacheableManager;
 
@@ -22,6 +23,8 @@ import datawave.security.ssl.SSLContextInfoImpl;
 @Exclude(ifProjectStage = DatawaveEmbeddedProjectStageHolder.DatawaveEmbedded.class)
 public class SecurityDomainProducer {
 
+    private static final Logger log = Logger.getLogger(SecurityDomainProducer.class);
+    
     @Resource(name = "java:jboss/jaas/datawave")
     private AuthenticationManager authenticationManager;
 
