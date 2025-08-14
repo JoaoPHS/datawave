@@ -248,11 +248,25 @@ public class QueryMetricTestBase {
         addStringField(fields, "USER_DN", metric.getColumnVisibility(), createTime, metric.getUserDN());
         addPredictionField(fields, metric.getColumnVisibility(), createTime, metric.getPredictions());
         addStringField(fields, "PLAN", metric.getColumnVisibility(), createTime, metric.getPlan());
+        addSubPlanField(fields, metric.getColumnVisibility(), createTime, metric.getSubPlans());
         addPageMetricsField(fields, metric.getColumnVisibility(), createTime, metric.getPageTimes());
 
         event.setFields(fields);
 
         return event;
+    }
+
+    protected void addSubPlanField(List<DefaultField> fields, String columnVisibility, long timestamp, Map<String,RangeCounts> subplans) {
+        if (subplans != null && !subplans.isEmpty()) {
+            for (Map.Entry<String,RangeCounts> entry : subplans.entrySet()) {
+                if (entry != null) {
+                    String subPlan = entry.getKey();
+                    RangeCounts range = entry.getValue();
+                    addStringField(fields, "SUBPLAN", columnVisibility, timestamp,
+                                    subPlan + " : " + range.getDocumentRangeCount() + "," + range.getShardRangeCount());
+                }
+            }
+        }
     }
 
     protected void addPageMetricsField(List<DefaultField> fields, String columnVisibility, long timestamp, List<BaseQueryMetric.PageMetric> pageMetrics) {
@@ -340,6 +354,23 @@ public class QueryMetricTestBase {
         m.setUser(DnUtils.getShortName(ALLOWED_CALLER.subjectDN()));
         m.setUserDN(ALLOWED_CALLER.subjectDN());
         m.addPrediction(new BaseQueryMetric.Prediction("PredictionTest", 200.0));
+        m.setSubPlans(createSubplans());
+    }
+
+    private static Map<String,RangeCounts> createSubplans() {
+        Map<String,RangeCounts> subPlans = new HashMap<>();
+
+        RangeCounts rangeCountOne = new RangeCounts();
+        rangeCountOne.setDocumentRangeCount(3);
+        rangeCountOne.setShardRangeCount(1);
+
+        RangeCounts rangeCountTwo = new RangeCounts();
+        rangeCountTwo.setDocumentRangeCount(2);
+        rangeCountTwo.setShardRangeCount(3);
+
+        subPlans.put("foo1 == bar1 || foo2 == bar2", rangeCountOne);
+        subPlans.put("foo1 == bar1 || foo4 == bar4", rangeCountTwo);
+        return subPlans;
     }
 
     public static String createQueryId() {
@@ -420,6 +451,7 @@ public class QueryMetricTestBase {
             assertEquals(m1.getDocRanges(), m2.getDocRanges(), message + "docRanges");
             assertEquals(m1.getFiRanges(), m2.getFiRanges(), message + "fiRanges");
             assertTrue(assertObjectsEqual(m1.getPlan(), m2.getPlan()), message + "plan");
+            assertTrue(assertObjectsEqual(m1.getSubPlans(), m2.getSubPlans()), message + "subPlans");
             assertEquals(m1.getLoginTime(), m2.getLoginTime(), message + "loginTime");
             assertTrue(assertObjectsEqual(m1.getPredictions(), m2.getPredictions()), message + "predictions");
             assertEquals(m1.getVersionMap(), m2.getVersionMap(), message + "versionMap");
@@ -627,7 +659,9 @@ public class QueryMetricTestBase {
                 if (!fields.contains(f)) {
                     fields.add(f);
                 } else {
-                    duplicateFields.add(f);
+                    if (!f.equals("SUBPLAN")) {
+                        duplicateFields.add(f);
+                    }
                 }
             }
         }
