@@ -1,6 +1,7 @@
 package datawave.security.authorization;
 
 import java.io.Serializable;
+import java.util.Objects;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonGetter;
@@ -12,6 +13,7 @@ import datawave.security.util.ProxiedEntityUtils;
  * A simple pair containing a subject and (optional) issuer DN. The supplied DN values are normalized into a lower-case form with the CN portion first.
  */
 public class SubjectIssuerDNPair implements Serializable {
+    
     private static final long serialVersionUID = -7558558154126871405L;
 
     private final String subjectDN;
@@ -28,8 +30,9 @@ public class SubjectIssuerDNPair implements Serializable {
 
     public static SubjectIssuerDNPair parse(String dn) {
         String[] dns = ProxiedEntityUtils.splitProxiedSubjectIssuerDNs(dn);
-        if (dns.length != 2)
-            throw new IllegalArgumentException(dn + " must contain a single subject and issuer DN");
+        if (dns.length != 2) {
+            throw new IllegalArgumentException("'" + dn + "' must contain a single subject and issuer DN");
+        }
         return new SubjectIssuerDNPair(dns[0], dns[1]);
     }
 
@@ -68,7 +71,7 @@ public class SubjectIssuerDNPair implements Serializable {
 
         if (!subjectDN.equals(that.subjectDN))
             return false;
-        return issuerDN != null ? issuerDN.equals(that.issuerDN) : that.issuerDN == null;
+        return Objects.equals(issuerDN, that.issuerDN);
     }
 
     @Override
