@@ -17,7 +17,6 @@ import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.TrustManagerFactory;
 
-import org.apache.commons.lang.StringUtils;
 import org.apache.deltaspike.core.api.config.ConfigProperty;
 import org.jboss.security.PicketBoxMessages;
 
@@ -91,10 +90,10 @@ public class EmbeddedJSSESecurityDomain implements SSLContextInfo {
     public void initialize() throws Exception {
 
         if (this.cipherSuitesString != null) {
-            this.cipherSuites = StringUtils.split(this.cipherSuitesString);
+            this.cipherSuites = this.cipherSuitesString.split(" ");
         }
         if (this.protocolsString != null) {
-            this.protocols = StringUtils.split(this.protocolsString);
+            this.protocols = this.protocolsString.split(" ");
         }
         this.clientAuth = Boolean.parseBoolean(this.clientAuthString);
 
