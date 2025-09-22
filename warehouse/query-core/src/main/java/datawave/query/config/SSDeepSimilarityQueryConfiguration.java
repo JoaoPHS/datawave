@@ -13,6 +13,7 @@ import datawave.util.ssdeep.SSDeepHash;
 public class SSDeepSimilarityQueryConfiguration extends GenericQueryConfiguration {
 
     int queryThreads = 100;
+    int numRangesPerScanner = 100000;
 
     int ngramSize = NGramGenerator.DEFAULT_NGRAM_SIZE;
     int maxRepeatedCharacters = SSDeepHash.DEFAULT_MAX_REPEATED_CHARACTERS;
@@ -73,6 +74,7 @@ public class SSDeepSimilarityQueryConfiguration extends GenericQueryConfiguratio
         setMaxRepeatedCharacters(other.getMaxRepeatedCharacters());
         setMinHashSize(other.getMinHashSize());
         setNGramSize(other.getNGramSize());
+        setNumRangesPerScanner(other.getNumRangesPerScanner());
         setQueryThreads(other.getQueryThreads());
         setDedupeSimilarityHashes(other.isDedupeSimilarityHashes());
         setMaxHashes(other.getMaxHashes());
@@ -94,6 +96,14 @@ public class SSDeepSimilarityQueryConfiguration extends GenericQueryConfiguratio
 
     public void setQueryThreads(int queryThreads) {
         this.queryThreads = queryThreads;
+    }
+
+    public int getNumRangesPerScanner() {
+        return numRangesPerScanner;
+    }
+
+    public void setNumRangesPerScanner(int numRangesPerScanner) {
+        this.numRangesPerScanner = numRangesPerScanner;
     }
 
     public int getNGramSize() {

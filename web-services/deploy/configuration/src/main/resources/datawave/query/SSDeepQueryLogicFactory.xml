@@ -13,6 +13,7 @@
         <property name="auditType" value="NONE" />
         <property name="indexBuckets" value="32" />
         <property name="queryThreads" value="100" />
+        <property name="numRangesPerScanner" value="100000" />
         <property name="maxRepeatedCharacters" value="3" />
         <property name="bucketEncodingBase" value="32" />
         <property name="bucketEncodingLength" value="2" />

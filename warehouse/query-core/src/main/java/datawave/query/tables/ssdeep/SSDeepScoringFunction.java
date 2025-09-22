@@ -55,7 +55,7 @@ public class SSDeepScoringFunction implements Function<Map.Entry<NGramTuple,SSDe
      */
     private int readOptionalMinScoreThreshold(Query query) {
         QueryImpl.Parameter minScoreParameter = query.findParameter(MIN_SSDEEP_SCORE_PARAMETER);
-        if (minScoreParameter != null) {
+        if (minScoreParameter != null && !minScoreParameter.getParameterValue().isBlank()) {
             String minScoreString = minScoreParameter.getParameterValue();
             try {
                 int minScore = Integer.parseInt(minScoreString);
