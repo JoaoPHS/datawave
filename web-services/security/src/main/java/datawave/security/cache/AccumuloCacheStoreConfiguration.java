@@ -45,8 +45,8 @@ public class AccumuloCacheStoreConfiguration extends AbstractStoreConfiguration 
     private Attribute<Integer> ageoffTTLhours;
     private Attribute<Integer> ageoffPriority;
 
-    public AccumuloCacheStoreConfiguration(AttributeSet attributes, AsyncStoreConfiguration async, SingletonStoreConfiguration singletonStore) {
-        super(attributes, async, singletonStore);
+    public AccumuloCacheStoreConfiguration(AttributeSet attributes, AsyncStoreConfiguration async) {
+        super(attributes, async, null); // Null for now, not sure what to pass here.
         instanceName = attributes.attribute(INSTANCE_NAME);
         zookeepers = attributes.attribute(ZOOKEEPERS);
         username = attributes.attribute(USERNAME);
