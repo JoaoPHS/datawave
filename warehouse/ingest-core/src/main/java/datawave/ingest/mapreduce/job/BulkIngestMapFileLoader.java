@@ -694,7 +694,7 @@ public final class BulkIngestMapFileLoader implements Runnable {
     }
 
     /**
-     * Determines whether or not it is safe to bring map files online. This asks Accumulo for its stats for major compaction (running and queued), and will
+     * Determines whether it is safe to bring map files online. This asks Accumulo for its stats for major compaction (running and queued), and will
      * return false if either "too many" compactions are running/queued.
      *
      * @param lastOnlineTime
@@ -703,42 +703,22 @@ public final class BulkIngestMapFileLoader implements Runnable {
      *            log info
      * @return boolean flag
      */
-    public boolean canBringMapFilesOnline(long lastOnlineTime, boolean logInfo) {
+    public boolean canBringMapFilesOnline(long lastOnlineTime, boolean logInfo) throws AccumuloException, AccumuloSecurityException {
         Level level = (logInfo ? Level.INFO : Level.DEBUG);
-        int majC = getMajorCompactionCount();
-        log.log(level, "There are " + majC + " compactions currently running or queued.");
+
+        // SETH NOTE: This is the only place that .getMajorCompactionCount() is used.
+        // It may be reasonable to remove the logic entirely and use another metric
+        // for deciding if we can bring the map files online.
+        // I'm deciding to replace it with a comparison against all active compactions, since that's
+        // at least as strict as all majC.
+        int majminC = accumuloClient.instanceOperations().getActiveCompactions().size();
+
+        log.log(level, "There are " + majminC + " compactions currently running or queued.");
 
         long delta = System.currentTimeMillis() - lastOnlineTime;
         log.log(level, "Time since map files last brought online: " + (delta / 1000) + "s");
 
-        return (delta > MAJC_WAIT_TIMEOUT) && (majC < MAJC_THRESHOLD);
-    }
-
-    private int getMajorCompactionCount() {
-        int majC = 0;
-
-        ManagerClientService.Client client = null;
-        ClientContext context = (ClientContext) accumuloClient;
-        try {
-            client = ThriftClientTypes.MANAGER.getConnection(context);
-            ManagerMonitorInfo mmi = client.getManagerStats(null, context.rpcCreds());
-            Map<String,TableInfo> tableStats = mmi.getTableMap();
-
-            for (java.util.Map.Entry<String,TableInfo> e : tableStats.entrySet()) {
-                majC += e.getValue().getMajors().getQueued();
-                majC += e.getValue().getMajors().getRunning();
-            }
-        } catch (Exception e) {
-            // Accumulo API changed, catch exception for now until we redeploy
-            // accumulo on lightning.
-            log.error("Unable to retrieve major compaction stats: " + e.getMessage());
-        } finally {
-            if (client != null) {
-                ThriftUtil.close(client, context);
-            }
-        }
-
-        return majC;
+        return (delta > MAJC_WAIT_TIMEOUT) && (majminC < MAJC_THRESHOLD);
     }
 
     /**
