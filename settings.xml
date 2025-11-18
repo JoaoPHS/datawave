@@ -1,0 +1,25 @@
+<settings>
+  <mirrors>
+    <!-- It redirects everything that was in GitHub Packages to Maven Central -->
+    <mirror>
+      <id>central-mirror</id>
+      <mirrorOf>*,!snapshots</mirrorOf>
+      <name>Central Mirror</name>
+      <url>https://repo.maven.apache.org/maven2</url>
+    </mirror>
+  </mirrors>
+  <profiles>
+    <profile>
+      <id>default-repos</id>
+      <activation><activeByDefault>true</activeByDefault></activation>
+      <repositories>
+        <repository>
+          <id>central</id>
+          <url>https://repo.maven.apache.org/maven2</url>
+          <releases><enabled>true</enabled></releases>
+          <snapshots><enabled>false</enabled></snapshots>
+        </repository>
+      </repositories>
+    </profile>
+  </profiles>
+</settings>
